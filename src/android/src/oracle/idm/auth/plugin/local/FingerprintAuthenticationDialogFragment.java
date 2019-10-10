@@ -107,7 +107,7 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment impl
   @Override
   public void onAuthenticated() {
     Log.v(TAG, "Entering onAuthenticated");
-    dismiss();
+    dismissAllowingStateLoss();
     _callback.onAuthenticated(_cryptoObject);
   }
 
@@ -156,7 +156,7 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment impl
   }
 
   private void _dismissDialog() {
-    dismiss();
+    dismissAllowingStateLoss();
     _fingerprintUiHelper.stopListening();
   }
 

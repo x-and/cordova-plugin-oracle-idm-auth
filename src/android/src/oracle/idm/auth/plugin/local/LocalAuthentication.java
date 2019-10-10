@@ -5,6 +5,7 @@
 package oracle.idm.auth.plugin.local;
 
 import android.app.Activity;
+import android.app.FragmentTransaction;
 import android.content.Context;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Build;
@@ -169,7 +170,10 @@ public class LocalAuthentication {
       FingerprintPromptLocalizedStrings strings = createFingerprintPromptLocalizedStrings(args.optJSONObject(2));
       FingerprintAuthenticationDialogFragment fragment = new FingerprintAuthenticationDialogFragment();
       fragment.setData(new FingerprintCallback(biometricAuthenticator, callbackContext), cryptoObject, strings);
-      fragment.show(_mainActivity.getFragmentManager(), "fingerprintDialogFragment");
+      FragmentTransaction transaction = _mainActivity.getFragmentManager().beginTransaction();
+      transaction.add(fragment, "fingerprintDialogFragment");
+      transaction.commitAllowingStateLoss();
+
     } catch (Exception e) {
       IdmAuthenticationPlugin.invokeCallbackError(callbackContext, PluginErrorCodes.AUTHENTICATION_FAILED);
     }
