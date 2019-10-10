@@ -38,6 +38,8 @@ import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.KeyPair;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
@@ -90,8 +92,16 @@ public class SecretKeyWrapper {
 
         // Even if we just generated the key, always read it back to ensure we
         // can read it successfully.
-        final KeyStore.PrivateKeyEntry entry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(alias, null);
-        keyPair = new KeyPair(entry.getCertificate().getPublicKey(), entry.getPrivateKey());
+        // workaround android P
+        // https://stackoverflow.com/questions/52024752/android-9-keystore-exception-android-os-servicespecificexception
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            final KeyStore.PrivateKeyEntry entry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(alias, null);
+            keyPair = new KeyPair(entry.getCertificate().getPublicKey(), entry.getPrivateKey());
+        } else {
+            final PrivateKey privateKey = (PrivateKey) keyStore.getKey(alias, null);
+            final PublicKey publicKey = keyStore.getCertificate(alias).getPublicKey();
+            keyPair = new KeyPair(publicKey, privateKey);
+        }
     }
 
     /**
