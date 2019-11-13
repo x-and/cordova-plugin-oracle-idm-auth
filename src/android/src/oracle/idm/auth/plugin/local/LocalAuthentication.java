@@ -247,8 +247,12 @@ public class LocalAuthentication {
       OMAuthData newAuthData = new OMAuthData(newPin);
       authenticator.updateAuthData(currAuthData, newAuthData);
       OMAuthenticator fingerprintAuthenticator = _getAuthenticator(id, LocalAuthType.BIOMETRIC);
-      if (fingerprintAuthenticator != null)
-        fingerprintAuthenticator.updateAuthData(currAuthData, newAuthData);
+      if (_getAuthenticator(id, LocalAuthType.FINGERPRINT) != null) {
+        _getAuthenticator(id, LocalAuthType.FINGERPRINT).updateAuthData(currAuthData, newAuthData);
+      }
+      if (_getAuthenticator(id, LocalAuthType.BIOMETRIC) != null) {
+        _getAuthenticator(id, LocalAuthType.BIOMETRIC).updateAuthData(currAuthData, newAuthData);
+      }
       _sendSuccess(callbackContext);
     } catch (BaseCheckedException e) {
       IdmAuthenticationPlugin.invokeCallbackError(callbackContext, e.getErrorCode());
