@@ -243,18 +243,21 @@ public class LocalAuthentication {
     if (!authenticatePin(authenticator, currAuthData, id, callbackContext, PluginErrorCodes.INCORRECT_CURRENT_AUTHDATA))
       return;
 
+    OMAuthenticator biometric = _getAuthenticator(id, LocalAuthType.BIOMETRIC);
+    OMAuthenticator fingerprint = _getAuthenticator(id, LocalAuthType.FINGERPRINT);
     try {
       OMAuthData newAuthData = new OMAuthData(newPin);
       authenticator.updateAuthData(currAuthData, newAuthData);
-      OMAuthenticator fingerprintAuthenticator = _getAuthenticator(id, LocalAuthType.BIOMETRIC);
-      if (_getAuthenticator(id, LocalAuthType.FINGERPRINT) != null) {
-        _getAuthenticator(id, LocalAuthType.FINGERPRINT).updateAuthData(currAuthData, newAuthData);
+
+      if (biometric != null) {
+        biometric.updateAuthData(currAuthData, newAuthData);
       }
-      if (_getAuthenticator(id, LocalAuthType.BIOMETRIC) != null) {
-        _getAuthenticator(id, LocalAuthType.BIOMETRIC).updateAuthData(currAuthData, newAuthData);
+      if (fingerprint != null) {
+        fingerprint.updateAuthData(currAuthData, newAuthData);
       }
       _sendSuccess(callbackContext);
     } catch (BaseCheckedException e) {
+      Log.e(TAG, "Error on changePin.", e);
       IdmAuthenticationPlugin.invokeCallbackError(callbackContext, e.getErrorCode());
     }
   }
@@ -329,7 +332,6 @@ public class LocalAuthentication {
   private OMAuthenticator _getAuthenticator(String id, LocalAuthType type) {
     Class authClass = type.getAuthClass();
     String instanceId = type.getInstanceId(id);
-
     try {
       OMAuthenticator authenticator = this._sharedManager.getAuthenticator(authClass,
                                                                            instanceId);
@@ -353,7 +355,7 @@ public class LocalAuthentication {
       fingerprintAuthenticator.setBackupAuthenticator(pinAuthenticator);
       return authenticator;
     } catch (OMAuthenticationManagerException ignore) {
-      Log.d(TAG, String.format("Authenticator with instanceId %s and type %s is not registered. Returning null.", instanceId, authClass.getName()));
+      Log.d(TAG, String.format("Authenticator with instanceId %s and type %s is not registered. Returning null.", instanceId, authClass.getName()), new Exception()); // Exception for stacktrace
       return null;
     }
   }
