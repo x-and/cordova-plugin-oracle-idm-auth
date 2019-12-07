@@ -91,6 +91,10 @@ public class OMFingerprintAuthenticator implements OMAuthenticator {
         initialized = true;
     }
 
+    public String getAuthenticatorId() {
+        return this.authenticatorId;
+    }
+
     @Override
     public void copyKeysFrom(OMKeyStore keyStore) {
         /* Since OMFingerprintAuthenticator uses the same keystore as the
@@ -161,6 +165,22 @@ public class OMFingerprintAuthenticator implements OMAuthenticator {
             throw new OMAuthenticationManagerException(OMErrorCode.INTERNAL_ERROR, "Cannot delete public-private keypair", e);
         }
         invalidate();
+    }
+
+
+    public void deleteAuthDataForced(Context context) throws OMKeyManagerException, OMAuthenticationManagerException {
+        // ensureInitialized();
+
+        try {
+            PreferenceManager.getDefaultSharedPreferences(context).edit().remove(ALIAS_KEK).commit();
+
+            KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+            keyStore.load(null);
+            keyStore.deleteEntry(ALIAS_KEK);
+        } catch (CertificateException | NoSuchAlgorithmException | IOException | KeyStoreException e) {
+            throw new OMAuthenticationManagerException(OMErrorCode.INTERNAL_ERROR, "Cannot delete public-private keypair", e);
+        }
+        // invalidate();
     }
 
     /**
@@ -337,8 +357,10 @@ public class OMFingerprintAuthenticator implements OMAuthenticator {
     private SecretKeyWrapper getSecretKeyWrapper() throws OMAuthenticationManagerException {
         if (secretKeyWrapper == null) {
             try {
-                Log.v(TAG, "Initializing SecretKeyWrapper");
+                Log.v(TAG, "Initializing SecretKeyWrapper", new Exception());
                 secretKeyWrapper = new SecretKeyWrapper(context, ALIAS_KEK, true);
+
+                Log.v(TAG, "Initializing SecretKeyWrapper - OK");
             } catch (InvalidAlgorithmParameterException e) {
             /*This happens every time when emulator is restarted. Though a fingerprint is registered, the stacktrace indicates:
              Caused by: java.security.InvalidAlgorithmParameterException: java.lang.IllegalStateException: At least one fingerprint must be enrolled to create keys requiring user authentication for every use

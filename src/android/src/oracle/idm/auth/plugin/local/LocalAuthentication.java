@@ -9,10 +9,12 @@ import android.app.FragmentTransaction;
 import android.content.Context;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Build;
+import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.util.Log;
 import oracle.idm.auth.plugin.IdmAuthenticationPlugin;
 import oracle.idm.auth.plugin.util.PluginErrorCodes;
 import oracle.idm.mobile.BaseCheckedException;
+import oracle.idm.mobile.OMErrorCode;
 import oracle.idm.mobile.OMMobileSecurityService;
 import oracle.idm.mobile.auth.local.OMAuthData;
 import oracle.idm.mobile.auth.local.OMAuthenticationManager;
@@ -20,6 +22,7 @@ import oracle.idm.mobile.auth.local.OMAuthenticationManagerException;
 import oracle.idm.mobile.auth.local.OMAuthenticator;
 import oracle.idm.mobile.auth.local.OMFingerprintAuthenticator;
 import oracle.idm.mobile.auth.local.OMPinAuthenticator;
+
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.PluginResult;
 import org.json.JSONArray;
@@ -160,6 +163,7 @@ public class LocalAuthentication {
     String id = args.optString(0);
     String type = args.optString(1);
     OMFingerprintAuthenticator biometricAuthenticator = (OMFingerprintAuthenticator) _getAuthenticator(id, LocalAuthType.getLocalAuthType(type));
+    Log.d(TAG, "authenticateBiometric");
 
     if (biometricAuthenticator == null) {
       IdmAuthenticationPlugin.invokeCallbackError(callbackContext, PluginErrorCodes.LOCAL_AUTHENTICATOR_NOT_FOUND);
@@ -169,15 +173,82 @@ public class LocalAuthentication {
       FingerprintManager.CryptoObject cryptoObject = biometricAuthenticator.getFingerprintManagerCryptoObject();
       FingerprintPromptLocalizedStrings strings = createFingerprintPromptLocalizedStrings(args.optJSONObject(2));
       FingerprintAuthenticationDialogFragment fragment = new FingerprintAuthenticationDialogFragment();
-      fragment.setData(new FingerprintCallback(biometricAuthenticator, callbackContext), cryptoObject, strings);
+      fragment.setData(new FingerprintCallback(biometricAuthenticator, callbackContext, this), cryptoObject, strings);
       FragmentTransaction transaction = _mainActivity.getFragmentManager().beginTransaction();
       transaction.add(fragment, "fingerprintDialogFragment");
       transaction.commitAllowingStateLoss();
 
     } catch (Exception e) {
-      IdmAuthenticationPlugin.invokeCallbackError(callbackContext, PluginErrorCodes.AUTHENTICATION_FAILED);
+      Log.e(TAG, "Error while authenticate biometric", e);
+      if (e instanceof KeyPermanentlyInvalidatedException) {
+        _handleBiometricChanges();
+        IdmAuthenticationPlugin.invokeCallbackError(callbackContext, PluginErrorCodes.BIOMETRIC_CHANGED);
+      } else {
+        IdmAuthenticationPlugin.invokeCallbackError(callbackContext, PluginErrorCodes.AUTHENTICATION_FAILED);
+      }
     }
   }
+
+  /* delete all data for fingerprint */
+  private void _handleBiometricChanges() {
+    Log.d(TAG, "handleBiometricChanges");
+
+    try {
+
+      OMFingerprintAuthenticator fingerprint = (OMFingerprintAuthenticator) this._sharedManager.getAuthenticator(LocalAuthType.FINGERPRINT.getAuthClass());
+      OMFingerprintAuthenticator biometric = (OMFingerprintAuthenticator) this._sharedManager.getAuthenticator(LocalAuthType.BIOMETRIC.getAuthClass());
+
+      if (fingerprint != null) {
+        fingerprint.deleteAuthDataForced(this._context);
+      }
+      if (biometric != null) {
+        biometric.deleteAuthDataForced(this._context);
+      }
+    } catch(Exception e) {
+      Log.w(TAG, "handleBiometricChanges null step failed", e);
+    }
+    try {
+      if (this._sharedManager.isEnabled(LocalAuthType.FINGERPRINT.getAuthenticatorName())) {
+
+        this._sharedManager.disableAuthentication(LocalAuthType.FINGERPRINT.getAuthenticatorName());
+      }
+
+      if (this._sharedManager.isEnabled(LocalAuthType.FINGERPRINT.getName())) {
+        this._sharedManager.disableAuthentication(LocalAuthType.FINGERPRINT.getName());
+      }
+      if (this._sharedManager.isEnabled(LocalAuthType.BIOMETRIC.getAuthenticatorName())) {
+        this._sharedManager.disableAuthentication(LocalAuthType.BIOMETRIC.getAuthenticatorName());
+      }
+      if (this._sharedManager.isEnabled(LocalAuthType.BIOMETRIC.getName())) {
+        this._sharedManager.disableAuthentication(LocalAuthType.BIOMETRIC.getName());
+      }
+
+      Log.d(TAG, "handleBiometricChanges - first step ok");
+    } catch(Exception e) {
+      Log.w(TAG, "handleBiometricChanges first step failed", e);
+    }
+
+    try {
+      this._sharedManager.unregisterAuthenticator(LocalAuthType.FINGERPRINT.getAuthClass());
+      Log.d(TAG, "handleBiometricChanges - second2 step ok");
+    } catch (Exception e) {
+      Log.w(TAG, "handleBiometricChanges second2 step failed", e);
+    }
+
+    try {
+      this._sharedManager.unregisterAuthenticator(LocalAuthType.BIOMETRIC.getAuthClass());
+      Log.d(TAG, "handleBiometricChanges - third2 step ok");
+    } catch (Exception e) {
+      Log.w(TAG, "handleBiometricChanges third2 step failed", e);
+    }
+
+
+    // with this we can add biometric auth after successfull login, but it will never succesfully authorized (Key unwrap failed)
+    // without this we can add biometric after app restart and all will works... 
+    // use hack for that - restart cordova app after error PluginErrorCodes.BIOMETRIC_CHANGED
+    this._init();
+  }
+
 
   /**
    * Authenticates the user using PIN
@@ -187,6 +258,8 @@ public class LocalAuthentication {
   public void authenticatePin(JSONArray args, CallbackContext callbackContext) {
     String id = args.optString(0);
     String pin = args.optString(1);
+
+    Log.d(TAG, "authenticatePin");
 
     OMAuthenticator authenticator = _getAuthenticator(id, LocalAuthType.PIN);
 
@@ -425,11 +498,13 @@ public class LocalAuthentication {
   private static class FingerprintCallback implements FingerprintAuthenticationDialogFragment.Callback {
     private final OMFingerprintAuthenticator fingerprintAuthenticator;
     private final CallbackContext callbackContext;
-
+    private final LocalAuthentication localAuthentication;
     public FingerprintCallback(OMFingerprintAuthenticator fingerprintAuthenticator,
-                               CallbackContext callbackContext) {
+                               CallbackContext callbackContext,
+                                LocalAuthentication localAuthentication) {
       this.fingerprintAuthenticator = fingerprintAuthenticator;
       this.callbackContext = callbackContext;
+      this.localAuthentication = localAuthentication;
     }
 
 
@@ -439,7 +514,12 @@ public class LocalAuthentication {
         fingerprintAuthenticator.authenticate(new OMAuthData(cryptoObject));
         callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
       } catch (OMAuthenticationManagerException e) {
-        IdmAuthenticationPlugin.invokeCallbackError(callbackContext, e.getErrorCode());
+        if (e.getErrorCode() == OMErrorCode.KEY_UNWRAP_FAILED.getErrorCode()) {
+          localAuthentication._handleBiometricChanges();
+          IdmAuthenticationPlugin.invokeCallbackError(callbackContext, PluginErrorCodes.BIOMETRIC_CHANGED);
+        } else {
+          IdmAuthenticationPlugin.invokeCallbackError(callbackContext, e.getErrorCode());
+        }
       }
     }
 

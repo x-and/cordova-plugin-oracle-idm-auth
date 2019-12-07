@@ -20,7 +20,6 @@ public interface PluginErrorCodes {
   String AUTHENTICATION_CANCELLED = OMErrorCode.USER_CANCELED_AUTHENTICATION.getErrorCode(); // Reuse existing code from IDM SDK
   String INCORRECT_CURRENT_AUTHDATA = "70009"; // Reuse code from iOS SDK
   String INTERNAL_ERROR = OMErrorCode.INTERNAL_ERROR.getErrorCode(); // Reuse code from iOS SDK
-
   // Local auth related
   String LOCAL_AUTHENTICATOR_NOT_FOUND = "70001";
   String NO_LOCAL_AUTHENTICATORS_ENABLED = "P1013";
@@ -32,4 +31,5 @@ public interface PluginErrorCodes {
   String BIOMETRIC_NOT_ENABLED = "P1019";
   String CHANGE_PIN_WHEN_PIN_NOT_ENABLED = "P1020";
   String GET_ENABLED_AUTHS_ERROR = "P1021";
+  String BIOMETRIC_CHANGED = "P1022";
 }
