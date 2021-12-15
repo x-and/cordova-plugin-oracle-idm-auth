@@ -6,7 +6,7 @@
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
         xmlns:android="http://schemas.android.com/apk/res/android"
         id="cordova-plugin-oracle-idm-auth"
-        version="1.2.0">
+        version="1.7.0">
   <name>cordova-plugin-oracle-idm-auth</name>
   <description>Provides authentication and authorization functionality using the Oracle IDM SDK, supporting standard protocols like Basic Auth, OAUTH, OpenID Connect and WebSSO</description>
   <keywords>cordova,idm,authentication,auth</keywords>
@@ -59,6 +59,7 @@
     <resource-file src="src/android/res/layout/activity_web_view.xml" target="res/layout/activity_web_view.xml"/>
     <resource-file src="src/android/res/layout/fingerprint_dialog_content.xml" target="res/layout/fingerprint_dialog_content.xml"/>
     <resource-file src="src/android/res/layout/fingerprint_dialog_container.xml" target="res/layout/fingerprint_dialog_container.xml"/>
+    <resource-file src="src/android/res/layout/login_dialog.xml" target="res/layout/login_dialog.xml"/>
     <resource-file src="src/android/res/values/colors.xml" target="res/values/colors.xml"/>
     <resource-file src="src/android/res/values/cordova-plugin-oracle-idm-auth_strings.xml" target="res/values/cordova-plugin-oracle-idm-auth_strings.xml"/>
     <resource-file src="src/android/res/drawable/ic_fingerprint_error.xml" target="res/drawable/ic_fingerprint_error.xml"/>
@@ -121,6 +122,7 @@
     <source-file src="src/android/sdk/oracle/idm/mobile/auth/RefreshTokenAuthenticationService.java" target-dir="src/oracle/idm/mobile/auth/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/auth/TimeoutManager.java" target-dir="src/oracle/idm/mobile/auth/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/auth/TwoWaySSLCompletionHandler.java" target-dir="src/oracle/idm/mobile/auth/"/>
+    <source-file src="src/android/sdk/oracle/idm/mobile/auth/UsernamePasswdAuthServiceInputCallbackImpl.java" target-dir="src/oracle/idm/mobile/auth/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/auth/local/AndroidKeyStoreKeyProvider.java" target-dir="src/oracle/idm/mobile/auth/local/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/auth/local/DefaultKeyProvider.java" target-dir="src/oracle/idm/mobile/auth/local/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/auth/local/KeyProvider.java" target-dir="src/oracle/idm/mobile/auth/local/"/>
@@ -178,6 +180,7 @@
     <source-file src="src/android/sdk/oracle/idm/mobile/connection/SSLExceptionEvent.java" target-dir="src/oracle/idm/mobile/connection/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/credentialstore/OMCredential.java" target-dir="src/oracle/idm/mobile/credentialstore/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/credentialstore/OMCredentialStore.java" target-dir="src/oracle/idm/mobile/credentialstore/"/>
+    <source-file src="src/android/sdk/oracle/idm/mobile/credentialstore/OMClassicCredentialStore.java" target-dir="src/oracle/idm/mobile/credentialstore/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/crypto/Base64.java" target-dir="src/oracle/idm/mobile/crypto/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/crypto/CryptoException.java" target-dir="src/oracle/idm/mobile/crypto/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/crypto/CryptoScheme.java" target-dir="src/oracle/idm/mobile/crypto/"/>
@@ -202,6 +205,7 @@
     <source-file src="src/android/sdk/oracle/idm/mobile/util/OMVersion.java" target-dir="src/oracle/idm/mobile/util/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/util/StringUtils.java" target-dir="src/oracle/idm/mobile/util/"/>
     <source-file src="src/android/sdk/oracle/idm/mobile/util/URLUtils.java" target-dir="src/oracle/idm/mobile/util/"/>
+    <source-file src="src/android/sdk/oracle/idm/mobile/util/ArrayUtils.java" target-dir="src/oracle/idm/mobile/util/"/>
   </platform>
 
   <!-- ios -->
@@ -244,8 +248,8 @@
     <header-file src="src/ios/sdk/IDMMobileSDKv2/Common/OMTimer/OMTimeEvent.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/Common/OMTimer/OMTimer.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/Common/OMURLProtocol.h"/>
-    <header-file src="src/ios/sdk/IDMMobileSDKv2/Common/OMWebViewClient.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/CredentialStoreService/KeychainItemWrapper.h"/>
+    <header-file src="src/ios/sdk/IDMMobileSDKv2/CredentialStoreService/OMClassicCredential.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/CredentialStoreService/OMCredential.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/CredentialStoreService/OMCredentialStore.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/CredentialStoreService/OMKeyChain.h"/>
@@ -276,6 +280,7 @@
     <header-file src="src/ios/sdk/IDMMobileSDKv2/OMClientCertLogoutService.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/OMClientCredentialGrant.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/OMConnectionHandler.h"/>
+    <header-file src="src/ios/sdk/IDMMobileSDKv2/OMCSRFRequestHandler.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/OMFedAuthAuthenticationService.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/OMFedAuthConfiguration.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/OMFedAuthLogoutService.h"/>
@@ -309,6 +314,7 @@
     <header-file src="src/ios/sdk/IDMMobileSDKv2/OMToken.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/OMVersion.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/OMWKWebViewClient.h"/>
+    <header-file src="src/ios/sdk/IDMMobileSDKv2/OMWKWebViewCookieHandler.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/SecureStorage/OMDataSerializationHelper.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/SecureStorage/OMSecureCrypto.h"/>
     <header-file src="src/ios/sdk/IDMMobileSDKv2/SecureStorage/OMSecureStorage.h"/>
@@ -328,8 +334,8 @@
     <source-file src="src/ios/sdk/IDMMobileSDKv2/Common/OMTimer/OMTimeEvent.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/Common/OMTimer/OMTimer.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/Common/OMURLProtocol.m"/>
-    <source-file src="src/ios/sdk/IDMMobileSDKv2/Common/OMWebViewClient.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/CredentialStoreService/KeychainItemWrapper.m"/>
+    <source-file src="src/ios/sdk/IDMMobileSDKv2/CredentialStoreService/OMClassicCredential.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/CredentialStoreService/OMCredential.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/CredentialStoreService/OMCredentialStore.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/CredentialStoreService/OMKeyChain.m"/>
@@ -358,6 +364,7 @@
     <source-file src="src/ios/sdk/IDMMobileSDKv2/OMClientCertLogoutService.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/OMClientCredentialGrant.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/OMConnectionHandler.m"/>
+    <source-file src="src/ios/sdk/IDMMobileSDKv2/OMCSRFRequestHandler.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/OMFedAuthAuthenticationService.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/OMFedAuthConfiguration.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/OMFedAuthLogoutService.m"/>
@@ -390,6 +397,7 @@
     <source-file src="src/ios/sdk/IDMMobileSDKv2/OMServiceDiscoveryHandler.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/OMToken.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/OMWKWebViewClient.m"/>
+    <source-file src="src/ios/sdk/IDMMobileSDKv2/OMWKWebViewCookieHandler.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/SecureStorage/OMDataSerializationHelper.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/SecureStorage/OMSecureCrypto.m"/>
     <source-file src="src/ios/sdk/IDMMobileSDKv2/SecureStorage/OMSecureStorage.m"/>

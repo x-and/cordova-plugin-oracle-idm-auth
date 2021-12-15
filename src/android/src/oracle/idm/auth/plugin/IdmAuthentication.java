@@ -33,6 +33,7 @@ import oracle.idm.mobile.auth.OMToken;
 import oracle.idm.mobile.auth.logout.OMLogoutCompletionHandler;
 import oracle.idm.mobile.callback.OMAuthenticationContextCallback;
 import oracle.idm.mobile.callback.OMMobileSecurityServiceCallback;
+import oracle.idm.mobile.certificate.ClientCertificatePreference;
 import oracle.idm.mobile.configuration.OMMobileSecurityConfiguration;
 
 import org.apache.cordova.CallbackContext;
@@ -157,6 +158,14 @@ public class IdmAuthentication implements OMMobileSecurityServiceCallback, OMAut
         if (value == JSONObject.NULL)
           value = null;
 
+        if(key.equals(OMSecurityConstants.Challenge.PASSWORD_KEY_2))
+        {
+          String passwordAsString = (String) challengeFieldsJson.opt(OMSecurityConstants.Challenge.PASSWORD_KEY);
+          if(passwordAsString != null) {
+            char[] passwordAsCharArray = passwordAsString.toCharArray();
+            value = passwordAsCharArray;
+          }
+        }
         challengeFields.put(key, value);
       }
       _completionHandler.proceed(challengeFields);
@@ -407,7 +416,15 @@ public class IdmAuthentication implements OMMobileSecurityServiceCallback, OMAut
           fields.put(_CHALLENGE_ERROR, IdmAuthenticationPlugin.errorToMap(errorCode));
         }
 
-        _loginCallback.success(new JSONObject(fieldsMap));
+        if(fields.containsKey("http_auth_host_key")) {
+          _mainActivity.runOnUiThread(() -> {
+            _localBroadcastManager.sendBroadcast(new Intent(WebViewActivity.DISPLAY_LOGIN_DIALOG));
+          });
+        }
+        else {
+          _loginCallback.success(new JSONObject(fieldsMap));
+        }
+
         break;
       case EMBEDDED_WEBVIEW_REQUIRED:
         Log.d(TAG, "Handling embedded webview challenge.");
@@ -426,6 +443,9 @@ public class IdmAuthentication implements OMMobileSecurityServiceCallback, OMAut
       case UNTRUSTED_SERVER_CERTIFICATE:
         _finishWebView();
         IdmAuthenticationPlugin.invokeCallbackError(_loginCallback, PluginErrorCodes.UNTRUSTED_CHALLENGE);
+        break;
+      case CLIENT_IDENTITY_CERTIFICATE_REQUIRED:
+        handleClientCertificateChallenge(fields);
         break;
       default:
         Log.w(TAG, "Unhandled challenge type encountered: " + _challengeType);
@@ -472,6 +492,12 @@ public class IdmAuthentication implements OMMobileSecurityServiceCallback, OMAut
     {
       handleExternalBrowserChallenge(fields);
     }
+  }
+
+  private void handleClientCertificateChallenge(Map<String, Object> fields) {
+    fields.put(OMSecurityConstants.Challenge.CLIENT_CERTIFICATE_ALIAS_KEY, "OMDefaultAuthenticator_default_key");
+    fields.put(OMSecurityConstants.Challenge.CLIENT_CERTIFICATE_STORAGE_PREFERENCE_KEY, ClientCertificatePreference.Storage.APP_LEVEL_ANDROID_KEYSTORE);
+    _completionHandler.proceed(fields);
   }
 
   private void handleExternalBrowserChallenge(Map<String, Object> fields) {
@@ -756,6 +782,7 @@ public class IdmAuthentication implements OMMobileSecurityServiceCallback, OMAut
     List<OMToken> tokens = context.getTokens(scopes);
     if (tokens.size() > 0)
     {
+      addExpiryTimeHeader(headers, tokens.get(0).getExpiryTime());
       addAuthorizationHeader(headers, _BEARER, tokens.get(0).getValue());
     }
     return headers;
@@ -805,6 +832,15 @@ public class IdmAuthentication implements OMMobileSecurityServiceCallback, OMAut
     headers.put(_AUTHORIZATION, String.format(_TOKEN_FORMAT, tokenType, token));
   }
 
+  /**
+   * Adds expiry time header to the map.
+   * @param headers
+   * @param expiryTime
+   */
+  private void addExpiryTimeHeader(Map<String, Object> headers, Date expiryTime)
+  {
+    headers.put(_EXPIRY_TIME, expiryTime);
+  }
 
   /**
    * @return true When OM_PROP_PARSE_TOKEN_RELAY_RESPONSE set to true, false otherwise.
@@ -843,6 +879,7 @@ public class IdmAuthentication implements OMMobileSecurityServiceCallback, OMAut
   private static final String _TOKEN_FORMAT = "%s %s";
   private static final String _BEARER = "Bearer";
   private static final String _BASIC = "Basic";
+  private static final String _EXPIRY_TIME = "ExpiryTime";
   private static final String _CHALLENGE_ERROR = "error";
   private static final String _REFRESH_EXPIRED_TOKENS = "refreshExpiredTokens";
   private static final String _IS_AUTHENTICATED_KEY = "isAuthenticated";

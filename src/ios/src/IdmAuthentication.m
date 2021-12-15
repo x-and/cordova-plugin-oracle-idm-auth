@@ -24,6 +24,9 @@ NS_ASSUME_NONNULL_BEGIN
 #define AUTH_WEB_VIEW @"AuthWebView"
 #define CHALLENGE_ERROR @"error"
 #define PROP_ENABLE_WEB_VIEW_BUTTONS @"EnableWebViewButtons"
+#define LOGIN_DIALOG_TITLE @"Please provide credentials"
+#define USERNAME_PLACEHOLDER @"Enter Username"
+#define PASSWORD_PLACEHOLDER @"Enter Password"
 
 
 #ifdef DEBUG
@@ -385,6 +388,50 @@ completedSetupWithConfiguration:(OMMobileSecurityConfiguration *)configuration
   self.setupCompletionCallback(self, error);
   IdmLog(@"completedSetupWithConfiguration done with Error %@", error);
 }
+
+/**
+ * Method to show login dialog.
+ */
+- (void) showLoginDialog: (NSDictionary*) fields{
+  UIAlertController* loginAlert = [UIAlertController alertControllerWithTitle:LOGIN_DIALOG_TITLE message:nil preferredStyle:UIAlertControllerStyleAlert];
+  
+  [loginAlert addTextFieldWithConfigurationHandler:^(UITextField* usernameField) {
+    usernameField.placeholder = USERNAME_PLACEHOLDER;
+    usernameField.clearButtonMode = UITextFieldViewModeWhileEditing;
+    usernameField.borderStyle = UITextBorderStyleRoundedRect;
+  }];
+
+  [loginAlert addTextFieldWithConfigurationHandler:^(UITextField* passwordField) {
+    passwordField.placeholder = PASSWORD_PLACEHOLDER;
+    passwordField.clearButtonMode = UITextFieldViewModeWhileEditing;
+    passwordField.borderStyle = UITextBorderStyleRoundedRect;
+    passwordField.secureTextEntry = YES;
+  }];
+  
+  
+  UIAlertAction* submitAction = [UIAlertAction actionWithTitle: @ "Submit"
+                            style: UIAlertActionStyleDefault handler: ^ (UIAlertAction * _Nonnull action) {
+
+    [fields setValue:loginAlert.textFields[0].text forKey:OM_USERNAME];
+    [fields setValue:loginAlert.textFields[1].text forKey:OM_PASSWORD];
+    
+    self.challenge.authChallengeHandler(fields, OMProceed);
+    NSLog(@ "Submit Tapped");
+  }];
+  
+  UIAlertAction* cancelAction = [UIAlertAction actionWithTitle: @ "Cancel"
+                            style: UIAlertActionStyleDefault handler: ^ (UIAlertAction * _Nonnull action) {
+    [self dismissAuthView];
+    self.challenge.authChallengeHandler(nil, OMCancel);
+    NSLog(@ "Cancel Tapped");
+  }];
+  
+  [loginAlert addAction: submitAction];
+  [loginAlert addAction: cancelAction];
+
+  [self.authViewController presentViewController:loginAlert animated: true completion: nil];
+}
+
 /**
  * OMMobileSecurityServiceDelegate protocol implementation
  */
@@ -401,10 +448,16 @@ completedSetupWithConfiguration:(OMMobileSecurityConfiguration *)configuration
   }
 
   if (challenge.challengeType == OMChallengeUsernamePassword) {
-    CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:@{@"challengeFields": fields}];
-    [self.loginLogoutCommandDelegate sendPluginResult:result callbackId:self.loginLogoutCallbackId];
-    IdmLog(@"Sending challenge back to user to fill up.");
-    return;
+    if([fields objectForKey:@"webview_key"]) {
+      [self showLoginDialog:fields];
+    }
+    else {
+      CDVPluginResult* result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:@{@"challengeFields": fields}];
+      [self.loginLogoutCommandDelegate sendPluginResult:result callbackId:self.loginLogoutCallbackId];
+      IdmLog(@"Sending challenge back to user to fill up.");
+        
+      return;
+    }
   } else if (challenge.challengeType == OMChallengeEmbeddedBrowser) {
     self.challenge = challenge;
     IdmLog(@"Launching webview and redirecting user to login web page.");
@@ -561,10 +614,8 @@ completedSetupWithConfiguration:(OMMobileSecurityConfiguration *)configuration
     [self.authViewController setIsLoginChallenge:isLogin];
     [self.baseViewController presentViewController:self.authViewController animated:YES completion:^{
       NSObject* webView __unused = nil;
-      if (self.isWkWebViewEnabled && [OMMobileSecurityConfiguration isWKWebViewAvailable]) {
+      if ([OMMobileSecurityConfiguration isWKWebViewAvailable]) {
         webView = self.authViewController.wkWebView;
-      } else {
-        webView = self.authViewController.authWebView;
       }
 
       if (webView == nil) {
@@ -696,10 +747,14 @@ completedSetupWithConfiguration:(OMMobileSecurityConfiguration *)configuration
   }
   NSArray* tokens = [context tokensForScopes:scopes];
   NSString* tokenValue;
+  NSDate* sessionExpiryDate;
 
   if ([tokens count] > 0) {
     tokenValue = ((OMToken*) [tokens objectAtIndex:0]).tokenValue;
+    sessionExpiryDate = ((OMToken*) [tokens objectAtIndex:0]).sessionExpiryDate;
+
     headers[@"Authorization"] = [NSString stringWithFormat:@"Bearer %@", tokenValue];
+    headers[@"ExpiryTime"] = [NSString stringWithFormat:@"%@", sessionExpiryDate];
   }
 
   return headers;

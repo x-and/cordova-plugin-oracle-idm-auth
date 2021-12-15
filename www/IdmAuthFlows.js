@@ -3,6 +3,7 @@
  * The Universal Permissive License (UPL), Version 1.0
  */
 /* jshint esversion: 6 */
+/* Plugin Version :  1.5.1 */
 
 /**
  * @file {@link https://github.com/oracle/cordova-plugin-oracle-idm-auth|cordova-plugin-oracle-idm-auth}
@@ -230,6 +231,22 @@ var IdmAuthFlows = function() {
     OAuthAuthentication:'OAuthAuthentication',
     OpenIDConnect:'OpenIDConnect10',
     LocalAuthenticator: 'LocalAuthenticator'
+  };
+
+  /**
+   * Utility method to change enumerability of keys.
+   */
+  var changeEnumberability = function(inputObject, nonEnumerableKeys)
+  {
+    var returnObject = {};
+    Object.keys(inputObject).forEach(function(keyName) {
+      isEnumerable = (nonEnumerableKeys.indexOf(keyName) > -1) ? false : true;
+      Object.defineProperty(returnObject, keyName, {
+        value: inputObject[keyName],
+        enumerable: isEnumerable
+      });
+    });
+    return returnObject;
   };
 
   /**
@@ -1054,8 +1071,7 @@ var IdmAuthFlows = function() {
    * For example, user may accidentally click a link on the login page. In this case, user can use "Back" button to come back to the login page.
    * For example, if the login page is not loaded correctly, user may want to try reloading the page, before cancelling the login.
    * If user cancels the login, the promise returned by {@link AuthenticationFlow#login} will be rejected.
-   * For iOS, {@link https://developer.apple.com/documentation/uikit/uiwebview|UIWebView} will be used by default.
-   * App can choose to use {@link https://developer.apple.com/documentation/webkit/wkwebview|WKWebView} through {@link FedAuthPropertiesBuilder#enableWkWebView|configuration}.
+   * For iOS, {@link https://developer.apple.com/documentation/webkit/wkwebview|WKWebView} will be used by default.
    * </p>
    * <p>
    * While logging out, the plugin brings up a WebView and loads the {@link FedAuthPropertiesBuilder#logoutUrl|logout page} provided in the configuration.
@@ -1077,6 +1093,7 @@ var IdmAuthFlows = function() {
    var FedAuthPropertiesBuilder = function(appName, loginUrl, logoutUrl, loginSuccessUrl, loginFailureUrl) {
     RemoteAuthPropertiesBuilder.call(this, appName);
     this.put(authPropertyKeys.AuthServerType, authServerTypes.FederatedAuthentication);
+    this.put(authPropertyKeys.EnableWkWebView, true);
     // There is a feature to remember the user name for fed auth cases.
     // Android has this support inbuilt in the OS level. So setting this property does not make a difference for Android.
     // iOS SDK needs this flag to remember the user name. So to make things consistent across platforms, this is set by default.
@@ -1553,6 +1570,19 @@ var IdmAuthFlows = function() {
     this.enablePKCE = function(enable) {
       assertBoolean(enable, authPropertyKeys.EnablePKCE);
       this.put(authPropertyKeys.OAuthEnablePKCE, enable);
+      return this;
+    };
+
+    /**
+     * @function enableWebViewButtons
+     * @memberof OAuthPropertiesBuilder.prototype
+     * @param {Array.<string>} actionButtonList - List of buttons to be enabled in web view. Defaults to ['ALL'].
+     * @return {FedAuthPropertiesBuilder}
+     */
+    this.enableWebViewButtons = function(actionButtonList)
+    {
+      assertButtonsArray(actionButtonList, authPropertyKeys.EnableWebViewButtons);
+      this.put(authPropertyKeys.EnableWebViewButtons, actionButtonList);
       return this;
     };
 
@@ -2177,8 +2207,14 @@ var IdmAuthFlows = function() {
       }
       // End: Backwards compatibility
 
-      return new Promise(function (resolve, reject) {
+      var NON_ENUMERABLE_KEYS = ['ExpiryTime']; // ToDo: Pass this as a variable to backend
+
+      var getHeadersPromise = new Promise(function (resolve, reject) {
         exec(resolve, reject, TAG, 'getHeaders', [authFlowKey, opt.fedAuthSecuredUrl, opt.oauthScopes]);
+      });
+
+      return getHeadersPromise.then(function(response) {
+        return changeEnumberability(response, NON_ENUMERABLE_KEYS);
       });
     };
   };
@@ -2451,6 +2487,53 @@ var IdmAuthFlows = function() {
     var pinCallback = authProps[authPropertyKeys.PinChallengeCallback];
     var enablePromise, disablePromise;
     var self = this;
+
+    /**
+     * Store given [key,value] into local authenticator's secured keystore. There are two keystores available.
+     * First is the default keystore and second one is the local authenticator's keystore.
+     * Keys stored in default keystore can be retrieved even before the user is authenticated using local authenticator.
+     * This is suitable for storing app level preferences which are needed at app launch time before user login.
+     * Local authenticator keystore can be accessed only after successful local authentication.
+     * So user has to be logged in before data can be stored in this manner.
+     * Needless to say, second one is more secure than first. So apps should not store confidential information using first method.
+     *
+     * Using same key across default and local authenticator keystores are not allowed.
+     * The value last set will be the one that will be stored and the value set into other keystore will be lost.
+     * For e.g., if you set ("foo","bar") in default authenticator and then after login, set ("foo","hello"), then when 
+     * you try to get back the key "foo" you will get the value as "hello".
+     * @function setPreference
+     * @memberof LocalAuthenticationFlowManager.prototype
+     * @param {String} key - key to store
+     * @param {String} value - value to store
+     * @param {boolean} secure - false to store in default keystore. Defaults to true.
+     * @return {Promise.<LocalAuthPropertiesBuilder.LocalAuthenticatorType>}
+     * If the promise is rejected, the callback will receive and object of type {@link AuthError}
+     */
+    this.setPreference = function(key, value, secure) {
+      assertString(key, "key");
+      return new Promise(function(resolve, reject) {
+        exec(resolve, reject, TAG, 'setPreference', [id, key, value, secure])
+      });
+    };
+
+    /**
+     * Fetches given key's value from local authenticator's keystore.
+     * Firstly user authentication is checked. If user is autehnticated using local authenticator, a check is performed
+     * on secured keystore. If key is found there its corresponding value is being returned. If key is not found in secured
+     * keystore, it fallsback to default keystore and searches the key overthere.
+     * If user is not authenticated, key will be searched from default keystore.
+     * @function enable
+     * @memberof LocalAuthenticationFlowManager.prototype
+     * @param {String} key - key to fetch
+     * @return {Promise.<LocalAuthPropertiesBuilder.LocalAuthenticatorType>}
+     * If the promise is rejected, the callback will receive and object of type {@link AuthError}
+     */
+    this.getPreference = function(key) {
+      assertString(key, "key");
+      return new Promise(function(resolve, reject) {
+        exec(resolve, reject, TAG, 'getPreference', [id, key])
+      });
+    };
 
     /**
      * Get all enabled local authenticator types, in primary first order.

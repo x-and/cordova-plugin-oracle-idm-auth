@@ -1,5 +1,24 @@
 # Release Notes
 
+## 1.7.0 (13 Dec, 2021)
+* Support for client certificate authentication flow.
+
+## 1.6.0 (23 Oct, 2020)
+* Support for two legged flow - FedAuth followed by a Basic Auth with native prompt.
+
+## 1.5.1 (25 May, 2020)
+* Support for parsing password as character array.
+
+## 1.5.0 (11 May, 2020)
+* Support for CSRF Protection for token relay service.
+
+## 1.4.0 (8 Apr, 2020)
+* Removing the referencing of UIWebView as per Apple guideline.
+
+## 1.3.0 (3 Dec, 2019)
+* API to control buttons shown on webview for OAuth usecase.
+* Ability to store data into local authenticator secure keystore.
+
 ## 1.2.0 (7 Aug, 2019)
 * API to control buttons shown on webview for WebSSO usecase.
 * Improvements for OAuth and OpenID usecases where login page is opened in an external browser by using in-app browser.
